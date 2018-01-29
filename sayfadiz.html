@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sayfa Sıralama(Sayfaları Dizme) Sayfası</title>
+    <link rel="stylesheet" href="sayfadiz.css"/>
+  </head>
+  <body>
+    <div class="maincontainer">
+      <div class="container">
+        <div class="header">
+          <div class="anasayfaimage" >
+            <img src="anasayfa.png" alt="anasayfa" onclick="window.location.href='/'">
+          </div>
+          <h3>Sayfa Dizdir!</h3>
+        </div>
+        <div class="main">
+          <input type="text" name="text0" value="" class="maintext" title="Aranılacak Siteyi giriniz." placeholder="Aranılacak Site" id="AranılacakSite">
+          <input type="text" name="text1" value="" class="maintext" title="Aranacak Kelimeyi giriniz." placeholder="Aranacak Kelime" id="AranacakKelime">
+          <br>
+
+          <button type="button" name="button" class="mainbutton" onclick="GetMultiPage()">ARA</button>
+          <!--<button type="button" name="button" class="mainbutton" onclick="GetPage()">Sayfa Getir</button>-->
+          <!--https://www.btk.gov.tr/tr-TR/Sayfalar/SG-SIBER-GUVENLIK-KURULU-->
+          <br>
+          <div class="response" id="response">
+            Urllerinizi ve aranacak kelimelerinizi giriniz. Sonrasında "Ara" tuşuna basınız.
+          </div>
+        </div>
+        <p id="scrappedData"></p>
+      </div>
+      <script src="/socket.io/socket.io.js"></script>
+      <script type="text/javascript">
+        var socket = new io();
+
+				var datas = [];
+        var dataCount = 0;
+        var score;
+        var totalUrl = 0;
+
+        socket.on('responsePage',function (data) {
+          datas[dataCount] = data;
+          dataCount++;
+          console.log(dataCount + ":" +datas[dataCount] + ":" + data);
+          console.log(JSON.stringify(datas));
+          if(dataCount === totalUrl){
+
+          		temp = [];
+              for (var i = 0; i < datas.length; i++) {
+                temp[i]= datas[i].count;
+                console.log(datas[i]);
+              }
+
+
+              for(var i = 0; i < datas.length; i++){
+                  mean = 0;
+                  temp[i].forEach(function(element){
+                    mean += element;
+                  })
+                 mean /= temp[i].length;
+
+                 std=0;
+                 temp[i].forEach(function(element){
+                   std += Math.pow(parseFloat(element-mean),2);
+                 })
+                 if(temp[i].length != 1)
+                  std /= (temp[i].length-1);
+                else
+                  std /= (temp[i].length);
+                 std = Math.sqrt(std);
+                 console.log("mean: "+mean);
+                 console.log("std: " + std);
+                score[i] = mean - std;
+                for(var j = 1; score[i] < 0; j++){
+	                 score[i] = mean * (j) - std;
+                 }
+                console.log("score: " + score[i]);
+                console.log("-------------------------------------------------");
+                datas[i].score = score[i];
+              }
+
+              datas.sort(function (a, b) {return b.score - a.score;});
+
+              document.getElementById('response').innerHTML = "";
+              for (var i = 0; i < datas.length; i++) {
+                //document.getElementById('response').innerHTML +=  datas[i].url + "score[" + i + "]: " + score[i].toFixed(4) + "<br>";
+                document.getElementById('response').innerHTML += (i+1) + ". olan url<br>" + datas[i].url + "<br>Score: " + datas[i].score.toFixed(4);
+                for (var j = 0; j < datas[i].searchit.length; j++) {
+                  document.getElementById('response').innerHTML +=  "<br>" + datas[i].searchit[j] + ": " + datas[i].count[j];
+                }
+                document.getElementById('response').innerHTML += "<br><br>";
+              }
+          }else{
+              //document.getElementById('scrappedData').innerHTML = data.scrapped;
+              document.getElementById('response').innerHTML = "";
+              document.getElementById('response').innerHTML += "\"" + data.url + "\" sayfasında <br> ";
+              for (var i = 0; i < data.count.length; i++) {
+                document.getElementById('response').innerHTML += data.searchit[i] + " kelimesi " + data.count[i] + " Kere var." + "<br>";
+              }
+              //console.log(data.scrapped);
+          }
+        })
+
+
+        socket.on('requestError',function (data) {
+          document.getElementById('response').innerHTML = "Sorgu sırasında bağlantıda hata yaşandı. Lütfen yeniden deneyin...";
+        })
+
+        function GetMultiPage() {
+          datas = [];
+          dataCount = 0;
+          score = [];
+          totalUrl = document.getElementById('AranılacakSite').value.split(" ").length;
+          console.log(totalUrl);
+          try {
+            var data = {
+              url: document.getElementById('AranılacakSite').value,
+              searchWord: document.getElementById('AranacakKelime').value
+            }
+            //document.getElementById('scrappedData').innerHTML = data.scrapped;
+            console.log(data.searchWord);
+            socket.emit('getmultiPage', data);
+            document.getElementById('response').innerHTML = "Yanıt Bekleniyor!";
+          } catch (e) {
+            console.log("Connection Error!");
+            document.getElementById('response').innerHTML = "Connection Error!";
+          }
+        }
+
+      </script>
+      <div class="footer">
+        <p>Created by Atakan A. Murat D.  -> Fire   - Iron</p>
+      </div>
+    </div>
+
+  </body>
+</html>

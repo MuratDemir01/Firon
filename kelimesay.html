@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kelime Saydırma Sayfası </title>
+    <link rel="stylesheet" href="kelimesay.css"/>
+  </head>
+  <body>
+    <div class="maincontainer">
+      <div class="container">
+        <div class="header">
+          <div class="anasayfaimage" >
+            <img src="anasayfa.png" alt="anasayfa" onclick="window.location.href='/'">
+          </div>
+          <h3>Aradığınız sayfada belirttiğiniz kelimeleri saydırın.</h3>
+        </div>
+        <div class="main">
+          <input type="text" name="text0" value="" class="maintext" title="Aranılacak Siteyi giriniz." placeholder="Aranılacak Site" id="AranılacakSite">
+          <input type="text" name="text1" value="" class="maintext" title="Aranacak Kelimeyi giriniz." placeholder="Aranacak Kelime" id="AranacakKelime">
+          <br>
+          <button type="button" name="button" class="mainbutton" onclick="GetPage()">ARA</button>
+          <!--<button type="button" name="button" class="mainbutton" onclick="GetPage()">Sayfa Getir</button>-->
+          <!--https://www.btk.gov.tr/tr-TR/Sayfalar/SG-SIBER-GUVENLIK-KURULU-->
+          <br>
+          <div class="response" id="response">
+            Url adresinizi ve aranacak kelimelerinizi girerek "Ara" tuşuna basınız.
+          </div>
+        </div>
+        <p id="scrappedData"></p>
+      </div>
+
+      <script src="/socket.io/socket.io.js"></script>
+      <script type="text/javascript">
+        var socket = new io();
+
+        socket.on('responsePage',function (data) {
+          //document.getElementById('scrappedData').innerHTML = data.scrapped;
+          document.getElementById('response').innerHTML = "";
+                        document.getElementById('response').innerHTML += "\"" + data.url + "\" sayfasında <br> ";
+          for (var i = 0; i < data.count.length; i++) {
+            document.getElementById('response').innerHTML += data.searchit[i] + " kelimesi " + data.count[i] + " Kere var." + "<br>";
+          }
+          //console.log(data.scrapped);
+        })
+
+        socket.on('requestError',function (data) {
+          document.getElementById('response').innerHTML = "Sorgu sırasında bağlantıda hata yaşandı. Lütfen yeniden deneyin...";
+        })
+
+        function GetPage() {
+          try {
+            var data = {
+              url: document.getElementById('AranılacakSite').value,
+              searchWord: document.getElementById('AranacakKelime').value
+            }
+            //document.getElementById('scrappedData').innerHTML = data.scrapped;
+            console.log(data.searchWord);
+            socket.emit('getPage', data);
+            document.getElementById('response').innerHTML = "Yanıt Bekleniyor!";
+          } catch (e) {
+            console.log("Connection Error!");
+            document.getElementById('response').innerHTML = "Connection Error!";
+          }
+        }
+
+      </script>
+      <div class="footer">
+        <p>Created by Atakan A. Murat D.  -> Fire   - Iron</p>
+      </div>
+    </div>
+
+  </body>
+</html>

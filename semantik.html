@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Semantik</title>
+    <link rel="stylesheet" href="semantik.css"/>
+  </head>
+  <body>
+    <div class="maincontainer">
+      <div class="container">
+        <div class="header">
+          <div class="anasayfaimage" >
+            <img src="anasayfa.png" alt="anasayfa" onclick="window.location.href='/'">
+          </div>
+          <h3 id="headText">Semantik Dizdir!</h3>
+        </div>
+        <div class="main">
+          <input type="text" name="text0" value="" class="maintext" title="Aranılacak Siteyi giriniz." placeholder="Aranılacak Site" id="AranılacakSite">
+          <input type="text" name="text1" value="" class="maintext" title="Aranacak Kelimeyi giriniz." placeholder="Aranacak Kelime" id="AranacakKelime">
+          <br>
+
+          <button type="button" name="button" class="mainbutton" onclick="GetMultiSite()">ARA</button>
+          <!--<button type="button" name="button" class="mainbutton" onclick="GetPage()">Sayfa Getir</button>-->
+          <!--https://www.btk.gov.tr/tr-TR/Sayfalar/SG-SIBER-GUVENLIK-KURULU-->
+          <br>
+          <div class="onprocess" id="onprocess">
+
+          </div>
+
+          <div class="response" id="response">
+            <!--Aradığınız Sayfada: %ARANILAN%  %Sayı%  Kere var.-->
+            <!--<ul class="tree" id="tree">
+
+            </ul>-->
+          </div>
+        </div>
+        <p id="scrappedData">
+          <ul class="tree" id="tree">
+
+          </ul>
+        </p>
+        <script src="/socket.io/socket.io.js"></script>
+        <script type="text/javascript">
+          var socket = new io();
+
+  				var datas = [];
+          var dataCount = 0;
+          var score;
+          var totalUrl = 0;
+          var deepCorrect = false;
+
+          var currentState = document.getElementById('onprocess');
+
+          socket.on('responsePage',function (data) {
+            document.getElementById('response').innerHTML = "";
+            /*data.forEach(function (element) {
+              element = CalculateScore(element);
+              document.getElementById('response').innerHTML += JSON.stringify(element);
+            });*/
+            try {
+              console.log(data);
+              /*console.log(JSON.stringify(data));
+              console.log(data.length);*/
+              //data Json değil dizi o yüzden derin1 diye bir şey yok
+              for (var i = 0; i < data.length; i++) {
+                //console.log("Data" + i + ": " + Array.isArray(data[i]));
+                if(data[i].length > 1){
+                  data[i].forEach(function (element) {
+                  /*  document.getElementById('response').innerHTML += "element" + element + "<br>";
+                    console.log("Element: " + element);*/
+                    element = CalculateScore(element);
+                  });
+                }else if(!Array.isArray(data[i])){
+                  console.log(data[i]);
+                  data[i] = CalculateScore(data[i]);
+                }
+                //document.getElementById('response').innerHTML += JSON.stringify(data[i]);
+                //console.log(JSON.stringify(data[i]));
+              }
+
+
+              //Draw Tree
+              for (var i = 0; i < data.length; i++) {
+                if(!Array.isArray(data[i])){
+                  GrowTree(data[i]);
+                }
+              }
+              for (var i = 0; i < data.length; i++) {
+                if(data[i].length > 1){
+                  data[i].forEach(function (element) {
+                    GrowTree(element);
+                  });
+                }
+              }
+
+
+              //GrowTree(data[2])
+
+            } catch (e) {
+              console.log(e);
+              document.getElementById('response').innerHTML += "Sanki bir hata var! Ama siz yinede bekleyin!";
+            }
+
+
+
+            try {
+              if(!deepCorrect){
+                deepCorrect = true;
+                for (var i = 0; i < data.length; i++) {
+                  if(data[i].length > 1){
+                    data[i].forEach(function (element) {
+                      console.log("Deep Sended: " + JSON.stringify(element));
+                      var newData = {
+                        url: element.url,
+                        searchWord: element.searchit.join(' ')
+                      }
+                      socket.emit('getmultiSiteSemantic', newData);
+                    });
+                  }
+                }
+              }
+            } catch (e) {
+              console.log(e);
+            }
+
+
+
+
+          })
+
+          socket.on('onprocess',function (data) {
+            if(data){
+              currentState.id = 'onprocess';
+              currentState.innerHTML = "İşlem sürüyor...";
+            } else {
+              currentState.id = 'notonprocess';
+              currentState.innerHTML = "Bir işlem tamamlandı!";
+            }
+          })
+
+
+
+          socket.on('remainingResponse',function (data) {
+            document.getElementById('headText').innerHTML = "";
+            if (deepCorrect) {
+              if (data > 0) {
+                document.getElementById('headText').innerHTML += "Yanıt Beklenen Sorgu Sayısı: " + data;
+              }else {
+                //document.getElementById('headText').innerHTML += "Tüm Yanıtlar elde edildi.";
+                document.getElementById('headText').innerHTML += "Pek çok Yanıt elde edildi.";
+              }
+            }else {
+              if (data > 0) {
+                document.getElementById('headText').innerHTML += "İlk Derinlik Için Yanıt Beklenen Sorgu Sayısı: " + data;
+              }else {
+                document.getElementById('headText').innerHTML += "İlk Derinlik Elde Edildi.";
+              }
+            }
+          })
+
+
+          socket.on('requestError',function (data) {
+            document.getElementById('response').innerHTML = "Sorgu sırasında bağlantıda hata yaşandı. Lütfen yeniden deneyin...";
+          })
+
+
+          function GrowTree(data) {// url, count, searchit, score, parent
+            var nodeUl = document.createElement("UL");
+            var nodeLi = document.createElement("LI");
+            var searchCount = "";
+            console.log("GrowTree: " + JSON.stringify(data));
+            console.log("Growing: " + data);
+
+            data.searchit = data.searchit.split(" ");
+
+            for (var i = 0; i < data.count.length; i++) {
+              searchCount += data.searchit[i] + ": " + data.count[i] + "  ";
+            }
+            var nodeText = document.createTextNode("url: " + data.url + "  " + searchCount + " Score: " + data.score.toFixed(4) + "  " );
+
+            nodeUl.id = data.url;
+            nodeLi.appendChild(nodeText);
+            nodeLi.appendChild(nodeUl);
+
+            if(document.getElementById(data.url) == undefined){
+              if(data.parent == undefined){
+                document.getElementById('tree').appendChild(nodeLi);
+              } else {
+                document.getElementById(data.parent).appendChild(nodeLi);
+              }
+            }
+
+          }
+
+          function CalculateParentScore(data) {//childs
+
+
+
+
+          }
+
+          function CalculateScore(data) {// url, count, searchit
+              var temp = data.count;
+              var mean = 0;
+              temp.forEach(function(element){
+                mean += element;
+              });
+             mean /= temp.length;
+
+             std = 0;
+             temp.forEach(function(element){
+               std += Math.pow(parseFloat(element-mean),2);
+             })
+             if(temp.length != 1)
+              std /= (temp.length-1);
+            else
+              std /= (temp.length);
+             std = Math.sqrt(std);
+            score = mean - std;
+
+            for(var j = 1; score < 0; j++){
+              score = mean * (j) - std;
+             }
+
+            data.score = score;
+            return data;
+          }
+
+          function GetMultiSite() {
+            datas = [];
+            dataCount = 0;
+            score = [];
+            totalUrl = document.getElementById('AranılacakSite').value.split(" ").length;
+            console.log(totalUrl);
+            deepCorrect = false;
+            try {
+              var data = {
+                url: document.getElementById('AranılacakSite').value,
+                searchWord: document.getElementById('AranacakKelime').value
+              }
+              //document.getElementById('scrappedData').innerHTML = data.scrapped;
+              console.log(data.searchWord);
+              socket.emit('getmultiSiteSemantic', data);
+              document.getElementById('response').innerHTML = "Yanıt Bekleniyor!";
+            } catch (e) {
+              console.log("Connection Error!");
+              document.getElementById('response').innerHTML = "Connection Error!";
+            }
+          }
+
+        </script>
+        <div class="footer">
+          <p>Created by Atakan A. Murat D.  -> Fire   - Iron</p>
+        </div>
+
+      </div>
+    </div>
+
+  </body>
+</html>
